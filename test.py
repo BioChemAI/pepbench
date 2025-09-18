@@ -1,116 +1,129 @@
 # ===== test.py =====
-import os
-import joblib
 import numpy as np
 import pandas as pd
 import torch
 import argparse
+from torch.utils.data import DataLoader
 
-from feature.OneHot import OneHotEncoder
-from model.factory import build_model
+from dataset import PepDataset
+from model_manager import ModelManager
 from utils.metrics import evaluate_classification, evaluate_regression
+from model.esm_model import ESMModel
+from model.pepbert import PepBERTModel
 
-# 支持的深度模型名称（用于是否使用序列原始输入）
-TRANSFORMER_MODELS = ['transformer', 'lstm', 'esm']
 
-# ==== Step 1: 加载测试集路径 ====
 def parse_args():
     parser = argparse.ArgumentParser(description="Model testing arguments")
-    parser.add_argument('--task', type=str, choices=['classification', 'regression'], required=True,
-                        help="Task type: classification or regression")
-    parser.add_argument('--model', type=str, required=True,
-                        help="Model name: rf, svm, transformer, esm, pepbert, etc.")
-    parser.add_argument('--model_path', type=str, required=True,
-                        help="Path to the saved model file")
-    parser.add_argument('--test_path', type=str, required=True,
-                        help="Path to the test dataset CSV file")
-    parser.add_argument('--max_len', type=int, default=190,
-                        help="Maximum sequence length (used for transformer-based models)")
+    parser.add_argument('--task', type=str, choices=['classification', 'regression'], required=True)
+    parser.add_argument('--model', type=str, required=True)
+    parser.add_argument('--model_path', type=str, required=True)
+    parser.add_argument('--test_path', type=str, required=True)
+    # parser.add_argument('--test_embed_path', type=str, default=None)
+    parser.add_argument('--max_len', type=int, default=20)
     return parser.parse_args()
 
-args = parse_args()
-test_path = args.test_path
-task = args.task
-model_name = args.model
-model_path = args.model_path
-max_len = args.max_len
 
-print(f"[INFO] Task: {task} | Model: {model_name}")
-print(f"[INFO] Loading model from: {model_path}")
+def main():
+    args = parse_args()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"[INFO] Task: {args.task} | Model: {args.model}")
+    print(f"[INFO] Loading model from: {args.model_path}")
+    print(f"[INFO] Using device: {device}")
 
-# ==== Step 2: 加载测试数据 ====
-df = pd.read_csv(test_path)
-X_test = df['peps'].values
-y_test = df['label'].values.astype(np.float32 if task == 'regression' else int)
+    # === 1. 加载测试数据 ===
+    df = pd.read_csv(args.test_path)
+    X_test = df['peps'].values
+    y_test = df['label'].values.astype(np.float32 if args.task == 'regression' else int)
 
-# ==== Step 3: 特征编码 ====
-if model_name == 'esm':
-    features_test = X_test  # 直接使用序列
-else:
-    encoder = OneHotEncoder(max_len=max_len, flatten=True)
-    features_test = np.array([encoder.encode(seq) for seq in X_test])
-    if features_test.ndim == 3:
-        features_test = features_test.reshape(features_test.shape[0], -1)
+    # === 2. 构建 Dataset ===
+    # pepbert
+    # test_dataset = PepDataset(
+    #     sequences=args.test_embed_path,
+    #     task='classification',
+    #     model_name='pepbert'
+    # )
+    # rf/svm/xgb/lstm/transformer/esm
+    test_dataset = PepDataset(
+        sequences=X_test,
+        labels=y_test,
+        task=args.task,
+        max_len=args.max_len,
+        model_name=args.model
+    )
+    test_loader = DataLoader(test_dataset, batch_size=2048, shuffle=False)
 
-# ==== Step 4: 设置设备 ====
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"[INFO] Using device: {device}")
+    # === 3. 初始化模型 ===
+    manager = ModelManager()
+    if args.model in ['rf', 'svn', 'xgb']:
+        input_dim = 20 # onehot，其他模型不使用
+    else:
+        input_dim = None
 
-# ==== Step 5: 加载模型并预测 ====
-if model_name in TRANSFORMER_MODELS:
-    model = build_model(name=model_name, task=task, device=device, max_len=max_len)
-    #model = build_model(name=model_name, task=task, device=device, max_len=max_len, input_dim = 20)# lstm
-    #model = build_model(name=model_name, task=task, device=device, max_len=max_len, model_path='MODEL/esm2_t12_35M_UR50D')# eam,pepbert
-    model.load_state_dict(torch.load(model_path, map_location=device))
-    model.to(device)
-    model.eval()
-
-    # 构建测试数据加载器
-    from torch.utils.data import Dataset, DataLoader
-
-    class SequenceDataset(Dataset):
-        def __init__(self, sequences, labels):
-            self.sequences = sequences
-            self.labels = torch.tensor(labels, dtype=torch.float32 if task == 'regression' else torch.long)
-
-        def __len__(self):
-            return len(self.sequences)
-        # lstm
-        def __getitem__(self, idx):
-            x = self.sequences[idx]
-            if isinstance(x, np.ndarray) and x.ndim == 1:
-                x = x.reshape(max_len, 20)
-            return torch.tensor(x, dtype=torch.float32), self.labels[idx]
-        #esm用：
-        # def __getitem__(self, idx):
-        #     return self.sequences[idx], self.labels[idx]
-
-
-    test_dataset = SequenceDataset(features_test, y_test)
-    test_loader = DataLoader(test_dataset, batch_size=64)
-
-    # 执行预测
+    model = manager.load_model(
+            path=args.model_path,
+            name=args.model,
+            task=args.task,
+            max_len=args.max_len,
+            input_dim=input_dim,
+            device=device
+        )
+    model = model.to(device)
+    # === 4. 执行预测 ===
     all_preds = []
-    with torch.no_grad():
-        for seqs, _ in test_loader:
-            outputs = model(seqs)  # shape (B, 1)
-            probs = torch.sigmoid(outputs)  # 转成概率
-            preds = (probs > 0.5).long()    # 转成0/1
-            all_preds.extend(preds.cpu().numpy())
-    y_pred = np.array(all_preds).flatten()
+
+    if args.model in ['esm', 'pepbert']:
+        if args.model == 'esm':
+            backbone = ESMModel(model_path="MODEL/esm2_t12_35M_UR50D", max_len=args.max_len, device=device)
+        else:
+            backbone = PepBERTModel(model_path="MODEL/prot_bert", max_len=args.max_len, device=device)
+
+        with torch.no_grad():
+            for batch in test_loader:
+                seqs, labels = batch
+                # embed, labels = batch
+                # outputs = model(embed.to(device))
+                # embed = backbone(seqs)
+                outputs = model(seqs)
+
+                if args.task == 'classification':
+                    preds = (outputs > 0.5).long()
+                else:
+                    preds = outputs#TODO:回归问题先不管
+
+                all_preds.extend(preds.cpu().numpy())
+
+        y_pred = np.array(all_preds).flatten()
+
+    elif args.model in ['lstm', 'transformer']:
+        with torch.no_grad():
+            for batch in test_loader:
+                seqs, labels = batch
+                outputs = model(seqs.to(device))
+
+                if args.task == 'classification':
+                    preds = (outputs > 0.5).long()
+                else:
+                    preds = outputs
+
+                all_preds.extend(preds.cpu().numpy())
+
+        y_pred = np.array(all_preds).flatten()
+
+    else:
+        # 传统机器学习模型
+        y_pred_prob = model.predict(test_dataset.features)
+
+    # === 5. 评估 ===
+    print("\n[INFO] Evaluation on Test Set:")
+    if args.task == 'classification':
+        y_pred = (y_pred_prob >= 0.5).astype(int)
+        metrics = evaluate_classification(y_test, y_pred)
+    else:
+        metrics = evaluate_regression(y_test, y_pred_prob)
+
+    for k, v in metrics.items():
+        print(f"{k}: {v:.4f}")
 
 
-else:
-    # 传统模型预测流程
-    model = joblib.load(model_path)
-    y_pred = model.predict(features_test)
-
-# ==== Step 6: 评估结果 ====
-print("\n[INFO] Evaluation on Test Set:")
-if task == 'classification':
-    metrics = evaluate_classification(y_test, y_pred)
-else:
-    metrics = evaluate_regression(y_test, y_pred)
-
-for k, v in metrics.items():
-    print(f"{k}: {v:.4f}")
+if __name__ == '__main__':
+    main()
