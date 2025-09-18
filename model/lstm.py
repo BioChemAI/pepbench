@@ -2,63 +2,62 @@
 
 import torch
 import torch.nn as nn
+import random
+import numpy as np
 
 
 class LSTMModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim=16, num_layers=2, task='classification', dropout=0.1, device=None):
+    def __init__(self, embedding_dim=50, hidden_dim=256, num_layers=2, task='classification',
+            dropout=0.2, device=None, max_len = None):
         super().__init__()
         self.task = task
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.max_len = max_len
+        self.vocab_size = 21
+        self.embedding_dim = embedding_dim
 
-        self.lstm = nn.LSTM(input_size=input_dim,
-                            hidden_size=hidden_dim,
-                            num_layers=num_layers,
-                            batch_first=True,
-                            dropout=dropout,
-                            bidirectional=True)
+        # 嵌入层
+        self.embedding = nn.Embedding(
+            num_embeddings=self.vocab_size,
+            embedding_dim=embedding_dim,
+            padding_idx=0  # 假设0是填充标记
+        )
 
-        # ✅ classification 也用 1 输出，配合 BCEWithLogitsLoss
+        self.lstm = nn.LSTM(
+            input_size=embedding_dim,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout,
+            bidirectional=True
+        )
+
+        
         self.classifier = nn.Linear(hidden_dim * 2, 1)
         self.to(self.device)
 
-    def forward(self, x):
-        lstm_out, _ = self.lstm(x)              # (B, L, 2*H)
-        pooled = lstm_out.mean(dim=1)           # (B, 2*H)
-        out = self.classifier(pooled)           # (B, 1)
-        return out
-
-    def fit(self, X_train, y_train, lr=1e-3, epochs=20, batch_size=32):
-        X = torch.tensor(X_train, dtype=torch.float32).to(self.device)
-        y = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1).to(self.device)  # (B, 1)
-
-        optimizer = torch.optim.Adam(self.parameters(), lr=lr)
-        loss_fn = nn.BCEWithLogitsLoss() if self.task == 'classification' else nn.MSELoss()
-
-        self.train()
-        for epoch in range(epochs):
-            total_loss = 0
-            for i in range(0, len(X), batch_size):
-                xb = X[i:i + batch_size]
-                yb = y[i:i + batch_size]
-
-                optimizer.zero_grad()
-                out = self.forward(xb)
-                loss = loss_fn(out, yb)
-                loss.backward()
-                optimizer.step()
-
-                total_loss += loss.item() * len(xb)
-
-            avg_loss = total_loss / len(X)
-            print(f"[Epoch {epoch + 1}] Loss: {avg_loss:.4f}")
-
-    def predict(self, X):
-        self.eval()
-        with torch.no_grad():
-            X = torch.tensor(X, dtype=torch.float32).to(self.device)
-            out = self.forward(X)  # logits
-            if self.task == 'classification':
-                probs = torch.sigmoid(out)
-                return (probs > 0.5).long().squeeze(1).cpu().numpy()
+    def _process_sequences(self, sequences):
+        """处理序列：截断或补足到max_len长度"""
+        processed = []
+        for seq in sequences:
+            if len(seq) > self.max_len:
+                # 截断超过max_len的部分
+                processed_seq = seq[:self.max_len]
+            elif len(seq) < self.max_len:
+                # 补足到max_len长度，用0填充
+                processed_seq = seq + [0] * (self.max_len - len(seq))
             else:
-                return out.squeeze(1).cpu().numpy()
+                processed_seq = seq
+            processed.append(processed_seq)
+        return np.array(processed)
+    def forward(self, x):
+        if x.device != next(self.parameters()).device:
+            x = x.to(next(self.parameters()).device)
+        # x 应该是整数索引，形状为 (B, L)
+        x_embedded = self.embedding(x)  # (B, L, embedding_dim)
+        lstm_out, _ = self.lstm(x_embedded)  # (B, L, 2*H)
+        pooled = lstm_out.mean(dim=1)  # (B, 2*H)
+        out = self.classifier(pooled)  # (B, 1)
+        if self.task == 'classification':
+            out = torch.sigmoid(out)
+        return out
