@@ -53,7 +53,7 @@ The peptide data used in this project comes from public databases and experiment
 - **Length range**：4-99
 - **Description**：Contains only natural amino acids
 
-##### 2.Antimicrobial Peptide(amp_50)
+##### 2.Antimicrobial Peptide(amp)
 - **Source**：Positive samples were integrated from the APD3, DBAASP, and DRAMP databases, retaining only sequences with both N- and C-termini being free or empty, followed by merging and deduplication. Negative samples were collected from the UniProt database by applying the “subcellular location” filter set to “cytoplasm,” with sequence length less than 183. Entries containing any of the following keywords were removed: antimicrobial, antibiotic, antiviral, antifungal, effector, excreted. The filtering was performed according to the paper *Identification of antimicrobial peptides from the human gut microbiome using deep learning*.
 - **Positive samples**：28756
 - **Negative samples**：28756
