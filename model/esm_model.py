@@ -1,3 +1,4 @@
+# model/esm_model.py
 import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
@@ -13,17 +14,18 @@ class ESMModel(nn.Module):
             device: torch.device = None,
     ):
         """
-        ESM 模型封装类，用于多肽序列的分类或回归任务。
-        :param model_path: 本地路径或 Huggingface Hub ID
+        ESM model wrapper class for peptide sequence classification or regression tasks.
+
+        :param model_path: local path or Huggingface Hub ID
         :param task: "classification" or "regression"
-        :param device: 指定运行设备
+        :param device: device to run the model
         """
         super().__init__()
 
         self.max_len = max_len
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.task = task
-        # 加载 tokenizer 和预训练模型
+        # Load the tokenizer and the pretrained model
         self.esm = AutoModel.from_pretrained(model_path, local_files_only=True).to(self.device)
         self.hidden_size = self.esm.config.hidden_size
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
@@ -40,11 +42,11 @@ class ESMModel(nn.Module):
             **kwargs
     ) -> torch.Tensor:
         """
-        :param sequences: 多肽序列列表（每个元素是一个氨基酸序列字符串）
-        :param input_ids: token ids (HuggingFace 风格调用)
-        :param attention_mask: attention mask (HuggingFace 风格调用)
+        :param sequences: List of peptide sequences
+        :param input_ids: token ids
+        :param attention_mask: attention mask
         """
-        # 如果传入的是 List[str]，先做 tokenizer 编码
+        # If input is a List[str], apply tokenizer encoding first
         with torch.no_grad():
             if sequences is not None:
                 inputs = self.tokenizer(
@@ -56,7 +58,7 @@ class ESMModel(nn.Module):
                 ).to(self.device)
                 inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-            # 如果传入的是 HuggingFace 风格的张量
+            # If the input is in HuggingFace-style tensors
             elif input_ids is not None:
                 inputs = {"input_ids": input_ids.to(self.device)}
                 if attention_mask is not None:
