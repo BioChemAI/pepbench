@@ -1,3 +1,14 @@
+# model/base.py
+# ======================================================
+# Base model class for the project
+# This class serves as the parent of all models and defines
+# the unified interface:
+# - fit: train the model
+# - predict: make predictions
+# - evaluate: evaluate model performance
+# Any model inheriting from BaseModel must implement these methods
+# ======================================================
+
 import torch.nn as nn
 
 class BaseModel(nn.Module):
