@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import torch
 import argparse
+import joblib
 from torch.utils.data import DataLoader
 
 from dataset import PepDataset
@@ -16,9 +17,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model testing arguments")
     parser.add_argument('--task', type=str, choices=['classification', 'regression'], required=True)
     parser.add_argument('--model', type=str, required=True)
-    parser.add_argument('--model_path', type=str, required=True)
+    parser.add_argument('--feature_type', type=str, default='')
+    parser.add_argument('--model_path', type=str, required=True,help="Path to the saved model file")
     parser.add_argument('--test_path', type=str, required=True)
-    # parser.add_argument('--test_embed_path', type=str, default=None)
     parser.add_argument('--max_len', type=int, default=20)
     return parser.parse_args()
 
@@ -30,45 +31,52 @@ def main():
     print(f"[INFO] Loading model from: {args.model_path}")
     print(f"[INFO] Using device: {device}")
 
-    # === 1. 加载测试数据 ===
-    df = pd.read_csv(args.test_path)
-    X_test = df['peps'].values
-    y_test = df['label'].values.astype(np.float32 if args.task == 'regression' else int)
-
-    # === 2. 构建 Dataset ===
-    # pepbert
-    # test_dataset = PepDataset(
-    #     sequences=args.test_embed_path,
-    #     task='classification',
-    #     model_name='pepbert'
-    # )
-    # rf/svm/xgb/lstm/transformer/esm
-    test_dataset = PepDataset(
-        sequences=X_test,
-        labels=y_test,
-        task=args.task,
-        max_len=args.max_len,
-        model_name=args.model
-    )
-    test_loader = DataLoader(test_dataset, batch_size=2048, shuffle=False)
-
-    # === 3. 初始化模型 ===
-    manager = ModelManager()
-    if args.model in ['rf', 'svn', 'xgb']:
-        input_dim = 20 # onehot，其他模型不使用
+    # === 1. Test data load ===
+    if args.model in ['rf', 'svm', 'xgb']:
+        model_type = 'ml'
+    elif args.model in ['lstm', 'transformer']:
+        model_type = 'dl'
     else:
-        input_dim = None
+        model_type = 'll'
+
+    test_dataset = PepDataset(
+            csv_path=args.test_path,
+            max_len=args.max_len,
+            task=args.task,
+            feature_type=args.feature_type,
+            model_type=model_type
+    )
+
+
+    if args.model in ['transformer', 'lstm', 'esm', 'pepbert']:
+        test_loader = DataLoader(test_dataset, batch_size=2048, shuffle=False)
+    else:
+        features_test = test_dataset.features
+
+    y_test = test_dataset.labels
+
+    # === 2. Create model and load the weights ===
+    manager = ModelManager()
 
     model = manager.load_model(
-            path=args.model_path,
-            name=args.model,
-            task=args.task,
-            max_len=args.max_len,
-            input_dim=input_dim,
-            device=device
-        )
-    model = model.to(device)
-    # === 4. 执行预测 ===
+        path=args.model_path,
+        name=args.model,
+        task=args.task,
+        max_len=args.max_len,
+        device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+        random_state=111
+    )
+
+    if args.model in ['transformer', 'lstm', 'esm', 'pepbert']:
+        model.load_state_dict(torch.load(args.model_path, map_location=device))
+        model.to(device)
+        model.eval()
+    else:
+        model = joblib.load(args.model_path)
+
+    # === 3. Predict ===
+    y_pred = None
+    y_pred_prob = None
     all_preds = []
 
     if args.model in ['esm', 'pepbert']:
@@ -80,44 +88,35 @@ def main():
         with torch.no_grad():
             for batch in test_loader:
                 seqs, labels = batch
-                # embed, labels = batch
-                # outputs = model(embed.to(device))
-                # embed = backbone(seqs)
-                outputs = model(seqs)
-
-                if args.task == 'classification':
-                    preds = (outputs > 0.5).long()
-                else:
-                    preds = outputs#TODO:回归问题先不管
-
-                all_preds.extend(preds.cpu().numpy())
+                embed = backbone(seqs)
+                outputs = model(embed)
+                all_preds.extend(outputs.cpu().numpy())
 
         y_pred = np.array(all_preds).flatten()
+        y_pred_prob = y_pred
 
     elif args.model in ['lstm', 'transformer']:
         with torch.no_grad():
             for batch in test_loader:
                 seqs, labels = batch
-                outputs = model(seqs.to(device))
+                outputs = model(seqs.to(device).squeeze(-1))
+                all_preds.extend(outputs.cpu().numpy())
 
-                if args.task == 'classification':
-                    preds = (outputs > 0.5).long()
-                else:
-                    preds = outputs
-
-                all_preds.extend(preds.cpu().numpy())
-
-        y_pred = np.array(all_preds).flatten()
+        y_pred = np.array(all_preds)
+        y_pred_prob = y_pred
 
     else:
-        # 传统机器学习模型
-        y_pred_prob = model.predict(test_dataset.features)
+        if hasattr(model, 'predict_proba') and args.task == 'classification':
+            y_pred_prob = model.predict_proba(features_test)[:, 1]  # Positive class probability
+        else:
+            y_pred_prob = model.predict(features_test)
+        y_pred = (y_pred_prob >= 0.5).astype(int) if args.task == 'classification' else y_pred_prob
 
-    # === 5. 评估 ===
+    # === 5. Evaluate ===
     print("\n[INFO] Evaluation on Test Set:")
     if args.task == 'classification':
-        y_pred = (y_pred_prob >= 0.5).astype(int)
-        metrics = evaluate_classification(y_test, y_pred)
+        y_pred_binary = (y_pred_prob >= 0.5).astype(int)
+        metrics = evaluate_classification(y_test, y_pred_binary)
     else:
         metrics = evaluate_regression(y_test, y_pred_prob)
 
