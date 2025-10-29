@@ -1,0 +1,7 @@
+include README.md
+include LICENSE
+
+recursive-include pep_prediction_bench *.py
+recursive-include data *
+
+global-exclude __pycache__ *.py[cod] .DS_Store
