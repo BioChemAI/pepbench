@@ -1,14 +1,16 @@
+# model/rf.py
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from .base import BaseModel
 
 class RandomForestModel(BaseModel):
-    def __init__(self, task='classification', 
-                 n_estimators=200,      # 树的数量，可以适当增加
-                 max_depth=None,        # 限制树深度，例如 10/20，None 表示不限制
-                 min_samples_split=5,   # 分裂所需最小样本数（默认2，调大防止过拟合）
-                 min_samples_leaf=2,    # 叶子最小样本数
-                 max_features="sqrt",   # 每次分裂使用的特征数（分类推荐 "sqrt"，回归推荐 "auto" 或 "sqrt"）
-                 random_state=42):
+    def __init__(self, task='classification',
+                 n_estimators=200,      # Number of trees: can be moderately increased
+                 max_depth=None,        # Maximum depth of the trees (e.g., 10 or 20): None means no restriction
+                 min_samples_split=5,   # Minimum number of samples required to split an internal node (default is 2)
+                 min_samples_leaf=2,    # Minimum number of samples required to be at a leaf node
+                 max_features="sqrt",   # Number of features to consider when looking for the best split ("sqrt" recommended for classification; "auto" or "sqrt" for regression)
+                 random_state=42,
+                 **kwargs):
         super().__init__()
         self.task = task
         if task == 'classification':
@@ -19,7 +21,7 @@ class RandomForestModel(BaseModel):
                 min_samples_leaf=min_samples_leaf,
                 max_features=max_features,
                 random_state=random_state,
-                n_jobs=-1  # 并行加速
+                n_jobs=-1
             )
         elif task == 'regression':
             self.model = RandomForestRegressor(
@@ -29,19 +31,23 @@ class RandomForestModel(BaseModel):
                 min_samples_leaf=min_samples_leaf,
                 max_features=max_features,
                 random_state=random_state,
+                bootstrap=True,
                 n_jobs=-1
             )
         else:
-            raise ValueError("Task must be 'classification' or 'regression'")
+            raise ValueError("--Task must be 'classification' or 'regression'.--")
 
+    # define the training method
     def fit(self, X_train, y_train):
         self.model.fit(X_train, y_train)
 
+    # define the prediction method
     def predict(self, X):
         if self.task == "classification":
-            return self.model.predict_proba(X)[:, 1]  # 概率，用于计算 AUC 等
+            return self.model.predict_proba(X)[:, 1]  # probability
         else:  # regression
-            return self.model.predict(X)  # 连续值
+            return self.model.predict(X)
 
+    # define the evaluation method
     def evaluate(self, X, y):
-        return self.model.score(X, y)  # 分类返回 accuracy，回归返回 R²
+        return self.model.score(X, y)  # classification-> accuracy，regression-> R²
