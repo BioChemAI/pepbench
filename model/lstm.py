@@ -16,11 +16,11 @@ class LSTMModel(nn.Module):
         self.vocab_size = 21
         self.embedding_dim = embedding_dim
 
-        # 嵌入层
+        # Embedding layer
         self.embedding = nn.Embedding(
             num_embeddings=self.vocab_size,
             embedding_dim=embedding_dim,
-            padding_idx=0  # 假设0是填充标记
+            padding_idx=0  # Assume that 0 is a padding token.
         )
 
         self.lstm = nn.LSTM(
@@ -37,14 +37,14 @@ class LSTMModel(nn.Module):
         self.to(self.device)
 
     def _process_sequences(self, sequences):
-        """处理序列：截断或补足到max_len长度"""
+        """Processing the sequence: truncate or pad to the max_len length"""
         processed = []
         for seq in sequences:
             if len(seq) > self.max_len:
-                # 截断超过max_len的部分
+                # Truncate the part that exceeds max_len
                 processed_seq = seq[:self.max_len]
             elif len(seq) < self.max_len:
-                # 补足到max_len长度，用0填充
+                # Pad to the max_len length with 0s.
                 processed_seq = seq + [0] * (self.max_len - len(seq))
             else:
                 processed_seq = seq
@@ -53,11 +53,11 @@ class LSTMModel(nn.Module):
     def forward(self, x):
         if x.device != next(self.parameters()).device:
             x = x.to(next(self.parameters()).device)
-        # x 应该是整数索引，形状为 (B, L)
+        # x should be an integer index with a shape of (B, L)
         x_embedded = self.embedding(x)  # (B, L, embedding_dim)
         lstm_out, _ = self.lstm(x_embedded)  # (B, L, 2*H)
-        pooled = lstm_out.mean(dim=1)  # (B, 2*H)
-        out = self.classifier(pooled)  # (B, 1)
+        pooled = lstm_out.mean(dim=1)   # (B, 2*H)
+        out = self.classifier(pooled)   # (B, 1)
         if self.task == 'classification':
             out = torch.sigmoid(out)
         return out
