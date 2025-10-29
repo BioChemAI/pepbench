@@ -1,100 +1,84 @@
-from peptidy.descriptors import(
-    aliphatic_index, aminoacid_frequencies, aromaticity,
-    average_n_rotatable_bonds, charge, charge_density,
-    compute_descriptors, hydrophobic_aa_ratio,
-    instability_index, isoelectric_point, length,
-    molecular_formula, molecular_weight, n_h_acceptors,
-    n_h_donors, topological_polar_surface_area,
-    x_logp_energy
-)
+'''
+fun:aas--->descriptors
+dim:48, numpy array
+'''
+import numpy as np
+from peptidy import descriptors
+
+class PeptidyDescriptorEncoder:
+    def __init__(self):
+        self.aas = ['freq_A', 'freq_C', 'freq_D', 'freq_E', 'freq_F', 'freq_G',
+                    'freq_H', 'freq_I', 'freq_K', 'freq_L', 'freq_M', 'freq_N',
+                    'freq_P', 'freq_Q', 'freq_R', 'freq_S', 'freq_T', 'freq_V',
+                    'freq_W', 'freq_Y', 'freq_R_m', 'freq_R_d', 'freq_C_m',
+                    'freq_K_a', 'freq_Y_p', 'freq_R_s', 'freq_S_p', 'freq_T_p']
+        self.elements = ['n_C', 'n_H', 'n_N', 'n_O', 'n_S', 'n_P']
 
 
+    def encode(self,sequence):
+        # sequence = sequence.upper()
+        if isinstance(sequence, np.ndarray):
+            sequence = sequence.tolist()
 
-class PeptidyEncoder:
-    def __init__(self, pH=7.0, include_names=False):
-        """
-        基于peptidy库的多肽特征编码器，计算指定的理化描述符
-        
-        参数:
-            pH: 计算电荷相关特征时的环境pH值（默认7.0）
-            include_names: 是否返回特征名称列表（默认False，仅返回特征值数组）
-        """
-        self.pH = pH
-        self.include_names = include_names
-        
-        # 定义需计算的描述符（名称+计算函数+是否需要pH参数）
-        self.descriptors = [
-            ('aliphatic_index', aliphatic_index, False),
-            ('aromaticity', aromaticity, False),
-            ('average_n_rotatable_bonds', average_n_rotatable_bonds, False),
-            ('charge', charge, True),
-            ('charge_density', charge_density, True),
-            ('hydrophobic_aa_ratio', hydrophobic_aa_ratio, False),
-            ('instability_index', instability_index, False),
-            ('isoelectric_point', isoelectric_point, False),
-            ('length', length, False),
-            ('molecular_weight', molecular_weight, False),
-            ('n_h_acceptors', n_h_acceptors, False),
-            ('n_h_donors', n_h_donors, False),
-            ('topological_polar_surface_area', topological_polar_surface_area, False),
-            ('x_logp_energy', x_logp_energy, False)
-        ]
-        
-        # 处理氨基酸频率（返回字典，需拆分为单独特征）
-        self.aa_freq_prefix = 'aa_freq_'  # 特征名称前缀
-        self.amino_acids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 
-                            'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']  # 标准氨基酸
-        # 补充可能的修饰氨基酸（根据peptidy支持的类型扩展）
-        self.modified_aa = ['C_m', 'Y_p']  # 示例：甲基化半胱氨酸、磷酸化酪氨酸
-        self.all_aa = self.amino_acids + self.modified_aa
-        
-        # 整合所有特征名称（基础描述符 + 氨基酸频率）
-        self.feature_names = [name for name, _, _ in self.descriptors]
-        self.feature_names += [f'{self.aa_freq_prefix}{aa}' for aa in self.all_aa]
+        n_samples = len(sequence)
+        feature_list = []
 
-    def encode(self, peptide_sequence):
-        """
-        计算多肽序列的特征向量
-        
-        参数:
-            peptide_sequence: 字符串，如"AVILC_mY_p"
-        
-        返回:
-            若include_names=True：元组 (特征值数组, 特征名称列表)
-            否则：特征值数组（shape: (n_features,)）
-        """
-        features = []
-        
-        # 1. 计算基础描述符（非氨基酸频率）
-        for name, func, need_pH in self.descriptors:
-            try:
-                if need_pH:
-                    # 需传入pH参数的函数（如charge）
-                    val = func(peptide_sequence, pH=self.pH)
-                else:
-                    # 无需pH参数的函数
-                    val = func(peptide_sequence)
-                features.append(val)
-            except Exception as e:
-                features.append(np.nan)
-                print(f"计算 {name} 时出错: {e}")
-        
-        # 2. 计算氨基酸频率（拆分字典为单独特征）
-        try:
-            aa_freq_dict = aminoacid_frequencies(peptide_sequence)
-            # 按预设氨基酸列表提取频率，未出现的用0填充
-            for aa in self.all_aa:
-                freq_key = f'freq_{aa}'  # 对应aminoacid_frequencies返回的键格式
-                features.append(aa_freq_dict.get(freq_key, 0.0))
-        except Exception as e:
-            # 若计算失败，用NaN填充所有氨基酸频率特征
-            features += [np.nan] * len(self.all_aa)
-            print(f"计算氨基酸频率时出错: {e}")
-        
-        # 转换为numpy数组
-        features_array = np.array(features, dtype=np.float32)
-        
-        if self.include_names:
-            return features_array, self.feature_names
-        else:
-            return features_array
+        for seq in sequence:
+            if not isinstance(seq, str) or len(seq) == 0:
+                raise ValueError(f"Invalid sequence: {seq}")
+            
+            feature_vector = []
+            ali_index = descriptors.aliphatic_index(seq)  # the aliphatic index of a peptide
+            feature_vector.append(ali_index)
+
+            ami_frequencies = descriptors.aminoacid_frequencies(seq)  # the frequency of all amino acids in the input sequence
+            for aa in self.aas:
+                feature_vector.append(ami_frequencies[aa])
+
+            aroma = descriptors.aromaticity(seq)  # the sum of the frequencies of aromatic amino-acids
+            feature_vector.append(aroma)
+
+            aver_n_rotatable_bonds = descriptors.average_n_rotatable_bonds(seq)  # the number of total rotatable bonds divided by the number of amino acids in the peptide
+            feature_vector.append(aver_n_rotatable_bonds)
+
+            charg = descriptors.charge(seq)  # the total charge of the sequence
+            feature_vector.append(charg)
+
+            charg_density = descriptors.charge_density(seq)  # the charge of the peptide normalized by weight
+            feature_vector.append(charg_density)
+
+            hydro_aa_ratio = descriptors.hydrophobic_aa_ratio(seq)  # the total ratio of hydrophobic amino-acids (A, C, C_m, F, I, L, M, and V) in a peptide
+            feature_vector.append(hydro_aa_ratio)
+
+            instab_index = descriptors.instability_index(seq)  # the instability index of the peptide
+            feature_vector.append(instab_index)
+
+            isoe_point = descriptors.isoelectric_point(seq)  # the isoelectric point of the peptide
+            feature_vector.append(isoe_point)
+
+            seq_len = descriptors.length(seq)  # the length of peptide
+            feature_vector.append(seq_len)
+
+            mole_formula = descriptors.molecular_formula(seq)  # the closed molecular formula of the amino acid sequence of the peptide
+            for formula in self.elements:
+                feature_vector.append(mole_formula[formula])
+
+            mole_weight = descriptors.molecular_weight(seq)  # the weight (g/mol) of the peptide without peptide bonds
+            feature_vector.append(mole_weight)
+
+            n_h_accept = descriptors.n_h_acceptors(seq)  # the total number of hydrogen bond acceptors in the peptide
+            feature_vector.append(n_h_accept)
+
+            n_h_don = descriptors.n_h_donors(seq)  # the total number of hydrogen bond donors in the peptide
+            feature_vector.append(n_h_don)
+
+            topo_polar_surface_area = descriptors.topological_polar_surface_area(seq)  # the total topological polar surface area of the peptide
+            feature_vector.append(topo_polar_surface_area)
+
+            x_logp_ener = descriptors.x_logp_energy(seq)  # the sum of xlogP index of the peptide divided by the length of the peptide
+            feature_vector.append(x_logp_ener)  # (1,48)
+
+            feature_list.append(feature_vector)  # (n_samples, 48)
+    
+
+        return np.array(feature_list, dtype=np.float32)
