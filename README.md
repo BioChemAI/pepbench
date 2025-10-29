@@ -1,15 +1,20 @@
 [readme.md](https://github.com/user-attachments/files/22362435/readme.md)
-# Peptide Property Prediction
+# Peptide Prediction Benchmark
 ## 📁Project Structure
 ~~~
-pepbench/
+pep_prediction_bench/
 ├── data/                      # Data storage directory
 │   ├── Binary_Classification/ # Binary classification task data               
 │   └── Regression/            # Regression task data
 │
+├── data_split/
+│   ├──random_split.py         # Random split
+│   └──similar_split.py        # Similarity based split
+│
 ├── feature/                   # Feature engineering module
 │   ├── onehot.py              # One-Hot encoding
-│   └── descriptor.py          # Molecular descriptor encoding
+│   ├── descriptor.py          # Molecular descriptor encoding
+│   └── integer.py
 │     
 ├── MODEL/                     # Pretrained model storage               
 │   ├── prot_bert/             # PepBERT model
@@ -23,8 +28,9 @@ pepbench/
 │   ├── xgb.py                 # XGBoost model
 │   ├── lstm.py                # LSTM model
 │   ├── transformer.py         # Transformer model
+│   ├── esm.py                 # ESM model
 │   ├── pepbert.py             # PepBERT model
-│   └── esm.py                 # ESM model
+│   └── predict_model.py       # Prediction Head
 │
 ├── utils/                     # Utility functions  
 │   └── metrics.py             # Evaluation metrics
@@ -33,8 +39,7 @@ pepbench/
 ├── train.py                   # Main training script           
 ├── dataset.py                 # Data loader
 ├── model_manager.py           # Model management tool
-├── test.py                    # Testing and evaluation script
-└── environment.yml            # Project dependencies
+└── test.py                    # Testing and evaluation script
 ~~~      
 
 ## 📊Data Introduction
@@ -48,10 +53,10 @@ The peptide data used in this project comes from public databases and experiment
 - **Length range**：4-99
 - **Description**：Contains only natural amino acids
 
-##### 2.Antimicrobial Peptide(amp)
-- **Source**：Positive samples were integrated from the APD3, DBAASP, and DRAMP databases, retaining only sequences with both N- and C-termini being free or empty, followed by merging and deduplication. Negative samples were collected from the UniProt database by applying the “subcellular location” filter set to “cytoplasm,” with sequence length less than 200. Meanwhile, negative samples were retained at a 1:1 ratio according to the length distribution of positive samples.Entries containing any of the following keywords were removed: antimicrobial, antibiotic, antiviral, antifungal, effector, excreted. The filtering was performed according to the paper *Identification of antimicrobial peptides from the human gut microbiome using deep learning*.
+##### 2.Antimicrobial Peptide(amp_50)
+- **Source**：Positive samples were integrated from the APD3, DBAASP, and DRAMP databases, retaining only sequences with both N- and C-termini being free or empty, followed by merging and deduplication. Negative samples were collected from the UniProt database by applying the “subcellular location” filter set to “cytoplasm,” with sequence length less than 183. Entries containing any of the following keywords were removed: antimicrobial, antibiotic, antiviral, antifungal, effector, excreted. The filtering was performed according to the paper *Identification of antimicrobial peptides from the human gut microbiome using deep learning*.
 - **Positive samples**：28756
-- **Negative samples**：28738
+- **Negative samples**：28756
 - **Length range**：1-183
 - **Description**：Contains only natural amino acids
 
@@ -129,35 +134,30 @@ The peptide data used in this project comes from public databases and experiment
 ##### 1.EC
 - **Source**：*BERT-AmPEP60: A BERT-Based Transfer Learning Approach to Predict the Minimum Inhibitory Concentrations of Antimicrobial Peptides for Escherichia coli and Staphylococcus aureus*
 - **Number of samples**：4042
-- **Length range**：
+- **Length range**：60
 - **Description**：Contains only natural amino acids
 
 ##### 2.SA
 - **Source**：*BERT-AmPEP60: A BERT-Based Transfer Learning Approach to Predict the Minimum Inhibitory Concentrations of Antimicrobial Peptides for Escherichia coli and Staphylococcus aureus*
 - **Number of samples**：3275
-- **Length range**：
+- **Length range**：60
 - **Description**：Contains only natural amino acids
 
-##### 3.Cell-Penetrating Peptide
-- **Source**：CycPeptMPDB
-- **Number of samples**：8466
-- **Length range**：
-- **Description**：Contains non-natural amino acids
-
-##### 4.Hemolysis Peptide
+##### 3.Hemolysis Peptide
 - **Source**：HemoPI2 - Hemolytic Activity Prediction
 - **Number of samples**：1926
-- **Length range**：
+- **Length range**：39
 - **Description**：Contains only natural amino acids
 
 ### Data Format
 The data is stored in CSV format and contains the following columns:
 ~~~
-,peps,label
+id,peps,label
 1527,FLGAILKIGHALAKTVLPMVTNAFKPKQ,0.0
 173,SPLGQSQPTVAGQPSARPAAEEYGYIVTDQKPLSLAAGVK,1.0
 1032,QGVRNSQSCRRNKGICVPIRCPGSMRQIGTCLGAQVKCCRRK,5.161810388853155
 ~~~
+
 ### Description of Columns
 - **id column**：Serial number, no special meaning
 - **peps column**：Peptide sequence represented by amino acid single-letter codes
@@ -167,26 +167,35 @@ The data is stored in CSV format and contains the following columns:
 ## 🚀Quick Start
 ### Install Dependencies
 ```bash
-conda env create -f environment.yml
+conda create -n pepbench python=3.10 -y
 conda activate pepbench
+pip install -r requirements.txt
 ```
 ### Dataset Splitting
 ```bash
-python randomsplit.py --data_path data/Binary_Classification/ADP.csv --random_state 111 # Random split
-python cdhitsplit.py # Similarity-based split
+python random_split.py --data_path data/Binary_Classification/ADP.csv --random_state 111 # Random split
+python similar_split.py --data_path data/Binary_Classification/ADP.csv --threshold 0.8 --random_state 111 # Similarity-based split
 ```
 ### Feature Extraction
-onehot
-descriptor
+```python
+# one-hot
+encoder = OneHotEncoder(max_len=max_len, flatten=True)
+features = encoder.encode(ssequences)
+
+# descriptor
+encoder = PeptidyDescriptorEncoder()
+features = encoder.encode(sequences)
+```
 ### Train Models
 ~~~bash
-python train.py --task classification --model rf --random_state 111 --train_path data/Binary_Classification/splitter111/ADP_train.csv --val_path data/Binary_Classification/splitter111/ADP_val.csv --max_len 198 --data_name ADP
+python train.py --task classification --model rf --feature_type onehot --random_state 111 --train_path data/Binary_Classification/splitter111/ADP_train.csv --val_path data/Binary_Classification/splitter111/ADP_val.csv --max_len 41 --data_name ADP
 ~~~
 ### Test Models
 ~~~bash
-python test.py --task classification --model rf --model_path saved_models/svm_classification_ADP_seed111_20250714_173604.pkl --test_path data/Binary_Classification/splitter111/ADP_test.csv --max_len 41
+python test.py --task classification --model rf --feature_type onehot --model_path saved_models/BEST_rf_onehot_classification_ADP_seed111.pkl --test_path data/Binary_Classification/splitter111/ADP_test.csv --max_len 41
 ~~~
 
 ## 🤝Contribution
 ## 📧Connection
 ## 📄License
+
