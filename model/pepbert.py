@@ -13,17 +13,17 @@ class PepBERTModel(nn.Module):
             device: torch.device = None,
     ):
         """
-        PepBERT 模型封装类，用于多肽序列的特征提取。
-        :param model_path: 本地路径
-        :param max_len: 最大序列长度
-        :param device: 指定运行设备
+        PepBERT A model encapsulation class used for feature extraction of peptide sequences.
+        :param model_path: Pretrained model local path
+        :param max_len: Maximum sequence length
+        :param device: Running device
         """
         super().__init__()
 
         self.max_len = max_len
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.task = task
-        # 加载 tokenizer 和预训练模型
+        # Load the tokenizer and the pre-trained model
         self.pepbert = BertModel.from_pretrained(model_path)
         self.hidden_size = self.pepbert.config.hidden_size
         self.tokenizer = BertTokenizer.from_pretrained(model_path, do_lower_case=False)
@@ -39,10 +39,10 @@ class PepBERTModel(nn.Module):
             **kwargs
     ) -> torch.Tensor:
         """
-        :param sequences: 多肽序列列表（每个元素是一个氨基酸序列字符串）
+        :param sequences: List of peptide sequences
         :param input_ids: token ids
         :param attention_mask: attention mask
-        :param last: 是否使用[CLS] token作为输出
+        :param last: List of polypeptide sequences
         """
         if sequences is not None:
             spaced_sequences = [" ".join(list(seq)) for seq in sequences]
@@ -55,7 +55,7 @@ class PepBERTModel(nn.Module):
             ).to(self.device)
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-        # 如果传入的是 HuggingFace 风格的张量
+        # If the input is a HuggingFace-style tensor
         elif input_ids is not None:
             inputs = {"input_ids": input_ids.to(self.device)}
             if attention_mask is not None:
@@ -63,25 +63,25 @@ class PepBERTModel(nn.Module):
         else:
             raise ValueError("forward() 需要 sequences (List[str]) 或 input_ids 张量")
 
-        # 模型推理
+        # Model inference
         with torch.no_grad():
             outputs = self.pepbert(**inputs)
 
-        # 特征提取
+        # Feature extraction
         if last:
-            # 使用 [CLS] token 作为整个序列的嵌入
+            # Use the [CLS] token as the embedding of the entire sequence
             embedding = outputs.last_hidden_state[:, 0, :]
         else:
-            # 使用平均池化（排除特殊token）
+            # Using average pooling (excluding special tokens)
             last_hid = outputs.last_hidden_state
             mask = inputs['attention_mask'].clone()
 
-            # 对于BERT，需要排除[CLS]、[SEP]、[PAD]等特殊token
+            # For BERT, it is necessary to exclude special tokens such as [CLS], [SEP], [PAD], etc.
             cls_token_id = self.tokenizer.cls_token_id
             sep_token_id = self.tokenizer.sep_token_id
             pad_token_id = self.tokenizer.pad_token_id
 
-            # 将特殊token的mask设为0
+            # Set the mask of the special token to 0
             special_tokens = [cls_token_id, sep_token_id, pad_token_id]
             for i, seq in enumerate(inputs['input_ids']):
                 for j, token_id in enumerate(seq):
