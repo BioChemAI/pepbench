@@ -195,7 +195,9 @@ python train.py --task classification --model rf --feature_type onehot --random_
 python test.py --task classification --model rf --feature_type onehot --model_path saved_models/BEST_rf_onehot_classification_ADP_seed111.pkl --test_path data/Binary_Classification/splitter111/ADP_test.csv --max_len 41
 ~~~
 
-## 🤝Contribution
-## 📧Connection
 ## 📄License
+Distributed under the Apache License 2.0.  
+See [LICENSE](LICENSE) for details.
+
+Copyright 2025 Li Pengyong.
 
