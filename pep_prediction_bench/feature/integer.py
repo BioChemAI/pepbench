@@ -1,4 +1,5 @@
 '''
+for lstm/transformer
 fun:aas-->numbers
 type:numpy array
 '''
@@ -24,9 +25,10 @@ class IntegerEncoder:
         encoded_list = []
         for seq in sequences:
             seq = seq.strip().upper()
-            encoded_vector = []
-            for aa in seq:
-                encoded_vector.append(self.aa_to_int.get(aa))
+            encoded_vector = [
+                self.aa_to_int.get(aa, self.padding_idx)
+                for aa in seq
+            ]
             
             if len(encoded_vector) > self.max_len:
                 encoded_vector = encoded_vector[:self.max_len]
