@@ -1,4 +1,5 @@
 '''
+for rf/svm/xgb
 fun:aas--->[0,1,0,...,0]s
 dim:max_len*20, numpy array
 '''
