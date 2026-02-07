@@ -1,4 +1,5 @@
 '''
+for rf/svm/xgb
 fun:aas--->descriptors
 dim:48, numpy array
 '''
