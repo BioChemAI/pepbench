@@ -72,6 +72,9 @@ class PepDataset(Dataset):
             elif feature_type == 'descriptor':
                 encoder = PeptidyDescriptorEncoder()
                 self.features = encoder.encode(self.sequences)
+            elif feature_type == 'frequency':
+                encoder = AACEncoder()
+                self.features = encoder.encode(self.sequences)
             else:
                 raise ValueError("--feature_type must be one of ['onehot', 'descriptor'] for traditional models.--")
         elif model_type == 'dl':
@@ -105,47 +108,4 @@ class PepDataset(Dataset):
             feature = torch.tensor(self.features[idx], dtype=torch.float32)
             return feature, label
     
-def download_data(filename, force=False, return_dataframe=False):
-    """
-    Download a dataset file from remote and save to ./data_download/.
 
-    Parameters
-    ----------
-    filename : str
-        Name of the file to download (e.g., "pep_classification.csv").
-    force : bool
-        If True, re-download even if exists.
-    return_dataframe : bool
-        If True, return a pandas DataFrame.
-
-    Returns
-    -------
-    str or pd.DataFrame
-        Path to file or DataFrame.
-    """
-    RECORD_ID = "17455060"
-    BASE_URL = f"https://zenodo.org/records/{RECORD_ID}/files/"
-
-    url = BASE_URL + filename + "?download=1"
-
-    download_dir = Path("data_download")
-    download_dir.mkdir(exist_ok=True)
-    local_path = download_dir / filename
-
-    if not local_path.exists() or force:
-        print(f"Downloading {url} ...")
-        try:
-            urllib.request.urlretrieve(url, str(local_path))
-            print(f"Saved to: {local_path.resolve()}")
-        except URLError as e:
-            raise RuntimeError(
-                f"Failed to download '{filename}' from {url}. "
-                f"Check filename and internet."
-            ) from e
-    else:
-        print(f"File already exists: {local_path.resolve()}")
-
-    if return_dataframe:
-        return pd.read_csv(local_path)
-    else:
-        return str(local_path.resolve())
