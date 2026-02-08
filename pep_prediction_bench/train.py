@@ -46,8 +46,6 @@ def parse_args():
                         help="Maximum peptide sequence length.")
     parser.add_argument('--random_state', type=int, default=42)
     parser.add_argument('--output_dir', type=str, default='saved_models')
-    # parser.add_argument('--train_embed_path', type=str, default=None)
-    # parser.add_argument('--val_embed_path', type=str, default=None)
     parser.add_argument('--freeze', action='store_true', help='Freeze pre-trained layers and only train classifier')
     parser.add_argument('--no_wandb', action='store_true', help='Disable wandb logging')
     return parser.parse_args()
