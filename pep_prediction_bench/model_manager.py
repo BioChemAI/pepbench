@@ -77,11 +77,4 @@ class ModelManager:
         filename = f"BEST_{model_name}_{description}_{task}_{data_name}_seed{random_state}{ext}"
         return os.path.join(output_dir, filename)
 
-def model_type_identify(model):
-    if model in ['rf', 'svm', 'xgb']:
-        model_type = 'ml'
-    elif model in ['lstm', 'transformer']:
-        model_type = 'dl'
-    else:
-        model_type = 'll'
-    return model_type
+
