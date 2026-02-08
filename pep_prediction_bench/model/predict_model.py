@@ -19,7 +19,8 @@ class PredictModel(nn.Module):
                 nn.ReLU(),
                 nn.Linear(128, 32),
                 nn.ReLU(),
-                nn.Linear(32, 1)
+                nn.Linear(32, 1),
+                nn.Softplus()
             )
     def forward(self,embedding):
         out = self.output_layer(embedding)
