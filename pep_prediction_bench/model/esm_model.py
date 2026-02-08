@@ -1,4 +1,11 @@
 # model/esm_model.py
+# ===============================
+# This class provides a unified wrapper around the pretrained ESM protein model,
+# mainly for peptide sequence representation learning. 
+# Functions include: loading pretrained ESM model and tokenizer, 
+# sequence encoding, and providing feature extraction interface 
+# for downstream classification/regression tasks.
+# ===============================
 import torch
 import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
