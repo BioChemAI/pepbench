@@ -1,203 +1,146 @@
-[readme.md](https://github.com/user-attachments/files/22362435/readme.md)
-# Peptide Prediction Benchmark
-## 📁Project Structure
-~~~
-pep_prediction_bench/
-├── data/                      # Data storage directory
-│   ├── Binary_Classification/ # Binary classification task data               
-│   └── Regression/            # Regression task data
-│
-├── data_split/
-│   ├──random_split.py         # Random split
-│   └──similar_split.py        # Similarity based split
-│
-├── feature/                   # Feature engineering module
-│   ├── onehot.py              # One-Hot encoding
-│   ├── descriptor.py          # Molecular descriptor encoding
-│   └── integer.py
-│     
-├── MODEL/                     # Pretrained model storage               
-│   ├── prot_bert/             # PepBERT model
-│   └── esm2_t12_35M_UR50D/    # ESM model
-│
-├── model/                     # Model architecture definitions
-│   ├── base.py                #
-│   ├── factory.py             # 
-│   ├── rf.py                  # Random Forest model
-│   ├── svm.py                 # Support Vector Machine model
-│   ├── xgb.py                 # XGBoost model
-│   ├── lstm.py                # LSTM model
-│   ├── transformer.py         # Transformer model
-│   ├── esm.py                 # ESM model
-│   ├── pepbert.py             # PepBERT model
-│   └── predict_model.py       # Prediction Head
-│
-├── utils/                     # Utility functions  
-│   └── metrics.py             # Evaluation metrics
-│                      
-├── saved_models/              # Path for saving trained models     
-├── train.py                   # Main training script           
-├── dataset.py                 # Data loader
-├── model_manager.py           # Model management tool
-└── test.py                    # Testing and evaluation script
-~~~      
+# Peptide Property Benchmark
 
-## 📊Data Introduction
-### Data Sources
-The peptide data used in this project comes from public databases and experimental measurements, including binary classification datasets and regression datasets:
-#### Binary Classification Datasets
-##### 1.Antidiabetic Peptide(ADP)
-- **Source**：*Discovery of potential antidiabetic peptides using deep learning*
-- **Positive samples**：418
-- **Negative samples**：5250
-- **Length range**：4-99
-- **Description**：Contains only natural amino acids
+This repository contains the training and evaluation code used for peptide
+property prediction experiments. It covers traditional machine-learning
+baselines, deep learning models, and frozen protein language-model
+embeddings. Both random and similarity-aware dataset splits are supported.
 
-##### 2.Antimicrobial Peptide(amp)
-- **Source**：Positive samples were integrated from the APD3, DBAASP, and DRAMP databases, retaining only sequences with both N- and C-termini being free or empty, followed by merging and deduplication. Negative samples were collected from the UniProt database by applying the “subcellular location” filter set to “cytoplasm,” with sequence length less than 183. Entries containing any of the following keywords were removed: antimicrobial, antibiotic, antiviral, antifungal, effector, excreted. The filtering was performed according to the paper *Identification of antimicrobial peptides from the human gut microbiome using deep learning*.
-- **Positive samples**：28756
-- **Negative samples**：28756
-- **Length range**：1-183
-- **Description**：Contains only natural amino acids
+> The hyperparameters currently committed in the training scripts are
+> reasonable placeholders. Replace them with the final paper values before
+> producing the reported results.
 
-##### 3.Antioxidant Peptide(AOPP)
-- **Source**：Antioxidant Peptide Prediction database
-- **Positive samples**：1586
-- **Negative samples**：1578
-- **Length range**：2-20
-- **Description**：Contains only natural amino acids
+## Repository layout
 
-##### 4.Self-assembling Peptide(assem)
-- **Source**：*Efficient prediction of peptide self-assembly through equential and graphical encoding* and *Reshaping the discovery of self-assembling peptides with generative AI guided by hybrid deep learning*
-- **Positive samples**：15007
-- **Negative samples**：26697
-- **Length range**：3-24
-- **Description**：Contains only natural amino acids
+```text
+.
+├── pephub/
+│   ├── raw_data/          # Input datasets used by all experiments
+│   ├── dataset.py         # Dataset loading and validation
+│   ├── featurizer.py      # Peptide feature extraction
+│   ├── splitter.py        # Random and similarity-aware splitting
+│   └── results.py         # Shared metrics JSON schema
+├── tests/                 # Unit tests for reusable data utilities
+├── ml_train.py            # Random Forest, SVM/SVR, and XGBoost
+├── dl_train.py            # LSTM and Transformer sequence models
+├── esm_train.py           # Frozen ESM encoder with an MLP head
+├── protbert_train.py      # Frozen ProtBERT encoder with an MLP head
+└── run_*.sh               # Reproducible random/similarity experiment runners
+```
 
-##### 5.Blood–Brain Barrier Penetrating Peptide(BBB)
-- **Source**：*Improved prediction and characterization of blood-brain barrier penetrating peptides using estimated propensity scores of dipeptides*
-- **Positive samples**：265
-- **Negative samples**：257
-- **Length range**：4-30
-- **Description**：Contains only natural amino acids
+Generated checkpoints, metrics, run state, logs, and downloaded pretrained
+weights are intentionally excluded from version control.
 
-##### 6.Cell-Penetrating Peptide(CPP)
-- **Source**：*StackCPPred: a stacking and pairwise energy  content-based prediction of cell-penetrating peptides  and their uptake efficiency*
-- **Positive samples**：462
-- **Negative samples**：462
-- **Length range**：4-61
-- **Description**：Contains only natural amino acids
+## Environment
 
-##### 7.Dipeptidyl Peptidase IV Inhibitory Peptide(DPPIV)
-- **Source**：*StackDPPIV: A novel computational approach for accurate prediction of dipeptidyl peptidase IV (DPP-IV) inhibitory peptides*
-- **Positive samples**：664
-- **Negative samples**：665
-- **Length range**：2-90
-- **Description**：Contains only natural amino acids
+Python 3.10 or later is recommended.
 
-##### 8.Hemolysis Peptide(hemo)
-- **Source**：*PeptideBERT: A Language Model Based on Transformers for Peptide Property Prediction*
-- **Positive samples**：1826
-- **Negative samples**：7490
-- **Length range**：1-190
-- **Description**：Contains only natural amino acids
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
 
-##### 9.Nonfouling Peptide(human)
-- **Source**：*PeptideBERT: A Language Model Based on Transformers for Peptide Property Prediction*
-- **Positive samples**：3600
-- **Negative samples**：13585
-- **Length range**：4-198
-- **Description**：Contains only natural amino acids
+Similarity-aware splitting additionally requires
+[MMseqs2](https://github.com/soedinglab/MMseqs2) on `PATH`.
 
-##### 10.Neuropeptide(NEU)
-- **Source**：*NeuroPred-PLM: an interpretable and robust model for neuropeptide prediction by protein language model*
-- **Positive samples**：4393
-- **Negative samples**：4306
-- **Length range**：4-99
-- **Description**：Contains only natural amino acids
+## Pretrained encoders
 
-##### 11.Solubility Peptide(souble)
-- **Source**：*PeptideBERT: A Language Model Based on Transformers for Peptide Property Prediction*
-- **Positive samples**：8785
-- **Negative samples**：9668
-- **Length range**：4-198
-- **Description**：Contains only natural amino acids
+Large pretrained weights are not stored in this repository because the model
+files exceed GitHub's normal file-size limit. Download compatible Hugging Face
+model snapshots into these directories:
 
-##### 12.Toxic Peptide(toxic)
-- **Source**：ToxinPred2 dataset
-- **Positive samples**：1052
-- **Negative samples**：464
-- **Length range**：1-200
-- **Description**：Contains only natural amino acids
+```text
+pretrained/esm2_t12_35M_UR50D/
+pretrained/prot_bert/
+```
 
-#### Regression Datasets
-##### 1.EC
-- **Source**：*BERT-AmPEP60: A BERT-Based Transfer Learning Approach to Predict the Minimum Inhibitory Concentrations of Antimicrobial Peptides for Escherichia coli and Staphylococcus aureus*
-- **Number of samples**：4042
-- **Length range**：60
-- **Description**：Contains only natural amino acids
+The expected upstream models are `facebook/esm2_t12_35M_UR50D` and
+`Rostlab/prot_bert`. The shell runners pass the local directories explicitly,
+so model loading behavior is unchanged.
 
-##### 2.SA
-- **Source**：*BERT-AmPEP60: A BERT-Based Transfer Learning Approach to Predict the Minimum Inhibitory Concentrations of Antimicrobial Peptides for Escherichia coli and Staphylococcus aureus*
-- **Number of samples**：3275
-- **Length range**：60
-- **Description**：Contains only natural amino acids
+## Data format
 
-##### 3.Hemolysis Peptide
-- **Source**：HemoPI2 - Hemolytic Activity Prediction
-- **Number of samples**：1926
-- **Length range**：39
-- **Description**：Contains only natural amino acids
+Every CSV file under `pephub/raw_data/` must contain exactly these columns:
 
-### Data Format
-The data is stored in CSV format and contains the following columns:
-~~~
+```csv
 id,peps,label
-1527,FLGAILKIGHALAKTVLPMVTNAFKPKQ,0.0
-173,SPLGQSQPTVAGQPSARPAAEEYGYIVTDQKPLSLAAGVK,1.0
-1032,QGVRNSQSCRRNKGICVPIRCPGSMRQIGTCLGAQVKCCRRK,5.161810388853155
-~~~
+1,ACDEFGHIK,1
+2,LMNPQRSTV,0
+```
 
-### Description of Columns
-- **id column**：Serial number, no special meaning
-- **peps column**：Peptide sequence represented by amino acid single-letter codes
-- **label column**：Indicates whether the peptide has a certain function or the strength of its activity
+Datasets whose filename contains `reg` are treated as regression tasks; all
+other datasets are treated as classification tasks. This naming convention is
+part of the original experiment logic.
 
+## Running experiments
 
-## 🚀Quick Start
-### Install Dependencies
+Each runner executes both random and similarity-aware splits with seeds 42,
+43, and 44:
+
 ```bash
-conda create -n pepbench python=3.10 -y
-conda activate pepbench
-pip install -r requirements.txt
+bash run_ml.sh
+bash run_dl.sh
+bash run_esm.sh
+bash run_protbert.sh
 ```
-### Dataset Splitting
+
+To run a subset, invoke the Python entry point directly. For example:
+
 ```bash
-python random_split.py --data_path data/Binary_Classification/ADP.csv --random_state 111 # Random split
-python similar_split.py --data_path data/Binary_Classification/ADP.csv --threshold 0.8 --random_state 111 # Similarity-based split
+python ml_train.py --split_method random --datasets AMP
+python dl_train.py --split_method random --models lstm --datasets AMP
+python esm_train.py --split_method random --datasets AMP
+python protbert_train.py --split_methods random --datasets AMP
 ```
-### Feature Extraction
-```python
-# one-hot
-encoder = OneHotEncoder(max_len=max_len, flatten=True)
-features = encoder.encode(ssequences)
 
-# descriptor
-encoder = PeptidyDescriptorEncoder()
-features = encoder.encode(sequences)
+Use `--help` on any entry point for the complete set of runtime options.
+
+## Fixed placeholder parameters
+
+The current fixed model configurations are:
+
+| Model | Parameters |
+|---|---|
+| Random Forest | 300 trees, unlimited depth |
+| SVM | linear kernel, `C=1.0` |
+| SVR | RBF kernel, `C=10.0`, `epsilon=0.1` |
+| XGBoost | 300 trees, depth 6, learning rate 0.1 |
+| LSTM | embedding 50, hidden size 256, 2 layers |
+| Transformer | model size 64, 4 heads, 2 layers, FFN ratio 4 |
+| ESM + MLP | head learning rate 0.001, hidden sizes 256 and 128 |
+| ProtBERT + MLP | head learning rate 0.001, hidden sizes 256 and 128 |
+
+These values are deliberately defined in one place near the top of each
+training file so they can be replaced without changing the training logic.
+
+## Outputs
+
+All generated artifacts are written under `outputs/`:
+
+```text
+outputs/
+├── checkpoints/           # Resume checkpoints
+├── metrics/               # Final metrics reports
+├── models/                # Fitted model files
+└── <model-family>/         # Internal resumable run state and summaries
 ```
-### Train Models
-~~~bash
-python train.py --task classification --model rf --feature_type onehot --random_state 111 --train_path data/Binary_Classification/splitter111/ADP_train.csv --val_path data/Binary_Classification/splitter111/ADP_val.csv --max_len 41 --data_name ADP
-~~~
-### Test Models
-~~~bash
-python test.py --task classification --model rf --feature_type onehot --model_path saved_models/BEST_rf_onehot_classification_ADP_seed111.pkl --test_path data/Binary_Classification/splitter111/ADP_test.csv --max_len 41
-~~~
 
-## 📄License
-Distributed under the Apache License 2.0.  
-See [LICENSE](LICENSE) for details.
+Every final metrics file uses schema version `1.0` and the same top-level
+fields: `dataset`, `task_type`, `split`, `model`, `parameters`, `selection`,
+and `test`. Model checkpoint formats remain model-specific.
 
-Copyright 2025 Li Pengyong.
+## Validation
 
+```bash
+python -m compileall -q .
+python -m pytest -q
+```
+
+## Citation
+
+Please replace this section with the final paper citation before publication.
+
+## License
+
+This project is released under the terms in [LICENSE](LICENSE).

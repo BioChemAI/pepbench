@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pephub"
+version = "0.1.0"
+description = "Peptide Processing and Bioinformatics Toolkit"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "PepHub Contributors"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "pandas>=1.3.0",
+    "numpy>=1.21.0",
+    "peptidy>=0.0.1",
+    "joblib>=1.1",
+    "scikit-learn>=1.2",
+    "xgboost>=1.7",
+    "torch>=1.13",
+    "transformers>=4.30",
+]
+
+[project.optional-dependencies]
+esm = [
+    "torch>=1.9.0",
+    "transformers>=4.20.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=0.950",
+]
+
+[tool.setuptools]
+packages = ["pephub"]
+
+[tool.setuptools.package-data]
+pephub = ["raw_data/*.csv"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
