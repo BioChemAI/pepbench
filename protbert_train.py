@@ -3,9 +3,8 @@
 
 """Train and evaluate a frozen ProtBERT encoder with an MLP head.
 
-The fixed learning rate is a placeholder until the final paper value is
-available. The original feature extraction, validation, refit, and test logic
-is preserved.
+The script uses a fixed learning rate and a consistent feature extraction,
+validation, refit, and test procedure across datasets.
 """
 
 

@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 """Train and evaluate traditional peptide-property machine-learning models.
 
-Model parameters are fixed placeholders until the paper's final values are
-available. The original data preparation, validation, refit, and test logic is
-preserved.
+The script uses fixed model configurations and preserves the same data
+preparation, validation, refit, and test procedure across model families.
 
 Models
 ------

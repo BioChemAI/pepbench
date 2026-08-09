@@ -5,10 +5,6 @@ property prediction experiments. It covers traditional machine-learning
 baselines, deep learning models, and frozen protein language-model
 embeddings. Both random and similarity-aware dataset splits are supported.
 
-> The hyperparameters currently committed in the training scripts are
-> reasonable placeholders. Replace them with the final paper values before
-> producing the reported results.
-
 ## Repository layout
 
 ```text
@@ -96,9 +92,9 @@ python protbert_train.py --split_methods random --datasets AMP
 
 Use `--help` on any entry point for the complete set of runtime options.
 
-## Fixed placeholder parameters
+## Model configurations
 
-The current fixed model configurations are:
+The model configurations used by the experiment scripts are:
 
 | Model | Parameters |
 |---|---|
@@ -110,9 +106,6 @@ The current fixed model configurations are:
 | Transformer | model size 64, 4 heads, 2 layers, FFN ratio 4 |
 | ESM + MLP | head learning rate 0.001, hidden sizes 256 and 128 |
 | ProtBERT + MLP | head learning rate 0.001, hidden sizes 256 and 128 |
-
-These values are deliberately defined in one place near the top of each
-training file so they can be replaced without changing the training logic.
 
 ## Outputs
 
@@ -136,10 +129,6 @@ and `test`. Model checkpoint formats remain model-specific.
 python -m compileall -q .
 python -m pytest -q
 ```
-
-## Citation
-
-Please replace this section with the final paper citation before publication.
 
 ## License
 

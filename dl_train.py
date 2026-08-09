@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 """Train and evaluate peptide LSTM and Transformer models.
 
-Architecture parameters are fixed placeholders until the final paper values
-are available. The original training, validation, refit, and test logic is
-preserved.
+The script uses fixed architectures and a consistent training, validation,
+refit, and test procedure for both neural model families.
 
 Experiment workflow:
 

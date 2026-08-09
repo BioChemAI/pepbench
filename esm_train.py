@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 """Train and evaluate a frozen ESM encoder with an MLP prediction head.
 
-The learning rate is a fixed placeholder until the final paper value is
-available. The original feature extraction, validation, refit, and test logic
-is preserved.
+The script uses a fixed learning rate and preserves the same feature
+extraction, validation, refit, and test procedure across datasets.
 
 The script keeps the original frozen-feature workflow:
 1. ESM extracts all peptide features into memory before MLP training.
