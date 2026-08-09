@@ -760,6 +760,8 @@ class EncodedPeptideDataset(Dataset):
                 raise ValueError(
                     f"Binary classification labels must be 0/1 or 0.0/1.0; got {sorted(unique)}"
                 )
+        else:
+            labels = np.log1p(labels)
 
         self.features = torch.as_tensor(encoded, dtype=torch.long)
         self.labels = torch.as_tensor(labels, dtype=torch.float32)

@@ -490,9 +490,9 @@ def prepare_feature_contexts(
         y_test = test_data["label"].to_numpy()
 
         if task_type == "regression":
-            y_train = y_train.astype(np.float64)
-            y_val = y_val.astype(np.float64)
-            y_test = y_test.astype(np.float64)
+            y_train = np.log1p(y_train.astype(np.float64))
+            y_val = np.log1p(y_val.astype(np.float64))
+            y_test = np.log1p(y_test.astype(np.float64))
 
         contexts[int(seed)] = {
             "X_train": X_train,

@@ -1921,10 +1921,10 @@ def run_experiments(args: argparse.Namespace) -> None:
         try:
             raw_data = load_dataset_with_project_loader(data_dir, dataset_name)
             data = validate_dataframe(raw_data, dataset_name, task_type)
-            labels = torch.as_tensor(
-                data["label"].to_numpy(dtype=np.float32),
-                dtype=torch.float32,
-            )
+            label_values = data["label"].to_numpy(dtype=np.float32)
+            if task_type == "regression":
+                label_values = np.log1p(label_values)
+            labels = torch.as_tensor(label_values, dtype=torch.float32)
 
             # Important: one unified ESM extraction before any LR candidate training.
             features = extract_all_features(

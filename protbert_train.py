@@ -664,8 +664,10 @@ def load_dataset(
 
     else:
 
-        labels = labels.astype(
-            np.float32
+        labels = np.log1p(
+            labels.astype(
+                np.float32
+            )
         )
 
 
